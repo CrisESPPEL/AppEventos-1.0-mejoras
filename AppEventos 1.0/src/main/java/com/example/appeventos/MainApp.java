@@ -28,10 +28,12 @@ public class MainApp extends Application {
 
         // Características de la escena
         stage.setTitle("AppEventos v1.0");
-        stage.setMinWidth(900);
-        stage.setMinHeight(620);
+        stage.setMinWidth(700);
+        stage.setMinHeight(500);
         stage.setScene(scene);
         stage.show();
+
+
     }
 
     public static void main(String[] args) {

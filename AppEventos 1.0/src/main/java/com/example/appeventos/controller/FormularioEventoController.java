@@ -3,20 +3,14 @@ package com.example.appeventos.controller;
 import com.example.appeventos.model.Evento;
 import com.example.appeventos.persistence.RepositorioEventosCSV;
 import javafx.fxml.FXML;
-import javafx.scene.control.Alert;
-import javafx.scene.control.CheckBox;
-import javafx.scene.control.ComboBox;
-import javafx.scene.control.DatePicker;
-import javafx.scene.control.Label;
-import javafx.scene.control.RadioButton;
-import javafx.scene.control.Slider;
-import javafx.scene.control.Spinner;
-import javafx.scene.control.SpinnerValueFactory;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
-import javafx.scene.control.ToggleGroup;
+import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.util.StringConverter;
+import javafx.util.converter.IntegerStringConverter;
+
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -72,11 +66,55 @@ public class FormularioEventoController {
 
     @FXML
     private void initialize() {
+
         cbCategoria.getItems().setAll("Música", "Tecnología", "Deportes", "Cultura");
         cbPublico.setEditable(true);
-        cbPublico.setPromptText("Escribe el público objetivo");
-        spAforo.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 1_000_000, 1));
+        cbPublico.getItems().setAll(
+                "Público general",
+                "Estudiantes",
+                "Profesionales",
+                "Familias",
+                "Jóvenes",
+                "Adultos"
+        );
 
+        DateTimeFormatter formato =
+                DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+        dpFecha.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(LocalDate fecha) {
+                return fecha == null ? "" : formato.format(fecha);
+            }
+
+            @Override
+            public LocalDate fromString(String texto) {
+                if (texto == null || texto.isBlank()) {
+                    return null;
+                }
+
+                return LocalDate.parse(texto, formato);
+            }
+        });
+
+        LocalDate fecha = dpFecha.getValue();
+
+        if (fecha == null) {
+            mostrarError("Selecciona una fecha válida.");
+            return;
+        }
+
+        dpFecha.setDayCellFactory(picker -> new DateCell() {
+            @Override
+            public void updateItem(LocalDate fecha, boolean vacia) {
+                super.updateItem(fecha, vacia);
+
+                setDisable(vacia || fecha.isBefore(LocalDate.now()));
+            }
+        });
+
+        cbPublico.setPromptText("Escribe el público objetivo");
+        configurarAforo();
         rbPresencial.setToggleGroup(grupoModalidad);
         rbOnline.setToggleGroup(grupoModalidad);
         rbHibrido.setToggleGroup(grupoModalidad);
@@ -112,6 +150,32 @@ public class FormularioEventoController {
             cbCategoria.setDisable(true);
             cargarEvento(evento);
         }
+    }
+
+    private void configurarAforo() {
+
+        SpinnerValueFactory.IntegerSpinnerValueFactory fabrica =
+                new SpinnerValueFactory.IntegerSpinnerValueFactory(
+                        1, 1_000_000, 1
+                );
+
+        spAforo.setValueFactory(fabrica);
+
+        TextFormatter<Integer> formatter = new TextFormatter<>(
+                new IntegerStringConverter(), 1,
+                cambio -> {
+                    String nuevoTexto = cambio.getControlNewText();
+
+                    if (nuevoTexto.isEmpty()
+                            || nuevoTexto.matches("\\d{1,7}")) {
+                        return cambio;
+                    }
+
+                    return null;
+                }
+        );
+
+        spAforo.getEditor().setTextFormatter(formatter);
     }
 
     // Constructor de los sliders
@@ -208,14 +272,6 @@ public class FormularioEventoController {
             return;
         }
 
-
-        // CAMPO FAMILIA DEL TEXTO
-        if (txtFamilia.getText().trim().isEmpty()) {
-            mostrarError("Introduce la familia del texto.");
-            return;
-        }
-
-
         // Si no encuentra un tipo de evento que guardar
         if (cbTipo.getValue() == null) {
             mostrarError("Selecciona el tipo de evento o actividad.");
@@ -285,8 +341,6 @@ public class FormularioEventoController {
         List<String> datos = new ArrayList<>();
         datos.add(txtNombre.getText().trim());
 
-        datos.add(txtFamilia.getText().trim());
-
         // Dependiendo de la categoría se guardan los datos recopilados
         switch (categoria) {
             case "Música" -> {
@@ -354,8 +408,6 @@ public class FormularioEventoController {
         String[] datos = evento.getDatos();
         String categoria = evento.getCategoria();
         txtNombre.setText(dato(datos, 0));
-
-        txtFamilia.setText(dato(datos, 0));
 
         // Según la categoría del evento cargamos los datos de cada campo en la posición deseada
         switch (categoria) {
@@ -466,9 +518,6 @@ public class FormularioEventoController {
     @FXML
     private void limpiarFormulario() {
         txtNombre.clear();
-
-        txtFamilia.clear();
-
         txtDeporte.clear();
         txtTematica.clear();
         cbTipo.setValue(null);
