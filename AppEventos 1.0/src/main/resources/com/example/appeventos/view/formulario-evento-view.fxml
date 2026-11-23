@@ -26,13 +26,6 @@
                 <Label prefWidth="215.0" styleClass="field-label" text="Nombre del evento" />
                 <TextField fx:id="txtNombre" maxWidth="Infinity" promptText="Nombre del evento" HBox.hgrow="ALWAYS" />
             </HBox>
-
-            <!-- Familia del texto -->
-            <HBox alignment="CENTER_LEFT" layoutX="18.0" layoutY="106.0" spacing="14.0" styleClass="form-row">
-                <Label prefWidth="215.0" styleClass="field-label" text="Familia del texto" />
-                <TextField fx:id="txtFamilia" maxWidth="Infinity" promptText="Familia del texto" HBox.hgrow="ALWAYS" />
-            </HBox>
-
             <!-- Deporte o disciplina -->
             <HBox fx:id="filaDeporte" alignment="CENTER_LEFT" spacing="14.0" styleClass="form-row">
                 <Label prefWidth="215.0" styleClass="field-label" text="Deporte o disciplina" />

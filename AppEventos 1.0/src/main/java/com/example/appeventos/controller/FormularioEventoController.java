@@ -25,9 +25,6 @@ public class FormularioEventoController {
     @FXML private VBox contenedorFormulario;
     @FXML private ComboBox<String> cbCategoria;
     @FXML private TextField txtNombre;
-
-    @FXML private TextField txtFamilia;
-
     @FXML private HBox filaDeporte;
     @FXML private TextField txtDeporte;
     @FXML private ComboBox<String> cbTipo;
@@ -78,10 +75,12 @@ public class FormularioEventoController {
                 "Adultos"
         );
 
+        // Configurar formato de fecha
         DateTimeFormatter formato =
                 DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
         dpFecha.setConverter(new StringConverter<>() {
+
             @Override
             public String toString(LocalDate fecha) {
                 return fecha == null ? "" : formato.format(fecha);
@@ -97,14 +96,9 @@ public class FormularioEventoController {
             }
         });
 
-        LocalDate fecha = dpFecha.getValue();
-
-        if (fecha == null) {
-            mostrarError("Selecciona una fecha válida.");
-            return;
-        }
-
+        // Deshabilitar los días anteriores a hoy
         dpFecha.setDayCellFactory(picker -> new DateCell() {
+
             @Override
             public void updateItem(LocalDate fecha, boolean vacia) {
                 super.updateItem(fecha, vacia);
@@ -300,9 +294,35 @@ public class FormularioEventoController {
             mostrarError("Introduce el lugar del evento.");
             return;
         }
+
         // Si no encuentra una fecha del evento que guardar
-        if (dpFecha.getValue() == null) {
-            mostrarError("Selecciona la fecha del evento.");
+        // Comprobar que se ha seleccionado una fecha
+        LocalDate fechaSeleccionada = dpFecha.getValue();
+
+        if (fechaSeleccionada == null) {
+            mostrarError("Selecciona una fecha válida.");
+            return;
+        }
+
+        // Comprobar que la fecha no sea anterior a hoy
+        if (fechaSeleccionada.isBefore(LocalDate.now())) {
+            mostrarError("La fecha no puede ser anterior a hoy.");
+            return;
+        }
+
+        // Confirmar el valor escrito en el Spinner del aforo
+        try {
+            spAforo.commitValue();
+
+            int aforo = spAforo.getValue();
+
+            if (aforo < 1 || aforo > 1_000_000) {
+                mostrarError("El aforo debe estar entre 1 y 1.000.000.");
+                return;
+            }
+
+        } catch (RuntimeException e) {
+            mostrarError("Introduce un aforo numérico válido.");
             return;
         }
 
