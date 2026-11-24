@@ -3,4 +3,6 @@ target/
 *.iml
 out/
 .DS_Store
-# Los CSV son datos locales generados por la aplicación; conserva la carpeta si quieres probar con datos propios.
+
+# Hago que los archivos de datos no se conserven en github, pues no me interesan
+/datos/*.csv

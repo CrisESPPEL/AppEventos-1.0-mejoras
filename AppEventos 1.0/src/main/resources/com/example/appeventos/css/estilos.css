@@ -124,6 +124,15 @@
     -fx-font-weight: bold;
     -fx-padding: 6px 0 0 4px;
 }
+.home-scroll {
+    -fx-background: #f1f5f9;
+    -fx-background-color: #f1f5f9;
+    -fx-border-color: transparent;
+}
+
+.home-scroll > .viewport {
+    -fx-background-color: #f1f5f9;
+}
 .sidebar-footer {
     -fx-text-fill: #64748b;
     -fx-font-size: 11px;

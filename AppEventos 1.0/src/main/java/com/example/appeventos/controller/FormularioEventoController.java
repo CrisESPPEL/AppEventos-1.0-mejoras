@@ -14,13 +14,14 @@ import java.time.format.DateTimeParseException;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.format.ResolverStyle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
 public class FormularioEventoController {
 
-    // Declaramos todos los campos de formulario-evento-view.fxml
+    /** Declaración de todos los campos de formulario-evento-view.fxml */
     @FXML private Label lblTitulo;
     @FXML private VBox contenedorFormulario;
     @FXML private ComboBox<String> cbCategoria;
@@ -61,6 +62,8 @@ public class FormularioEventoController {
     private Consumer<Boolean> alGuardar = correcto -> { };
     private boolean actualizandoCategoria;
 
+    private static final DateTimeFormatter FORMATO_FECHA = DateTimeFormatter.ofPattern("dd/MM/uuuu").withResolverStyle(ResolverStyle.STRICT);
+
     @FXML
     private void initialize() {
 
@@ -75,37 +78,45 @@ public class FormularioEventoController {
                 "Adultos"
         );
 
-        // Configurar formato de fecha.
-        DateTimeFormatter formato =
-                DateTimeFormatter.ofPattern("dd/MM/yyyy");
-
+        /** Configurar formato y validación estricta de fecha. */
         dpFecha.setConverter(new StringConverter<>() {
 
             @Override
             public String toString(LocalDate fecha) {
-                return fecha == null ? "" : formato.format(fecha);
+                return fecha == null ? "" : FORMATO_FECHA.format(fecha);
             }
 
             @Override
             public LocalDate fromString(String texto) {
+
                 if (texto == null || texto.isBlank()) {
                     return null;
                 }
 
-                return LocalDate.parse(texto, formato);
+                try {
+                    return LocalDate.parse(texto.trim(), FORMATO_FECHA);
+
+                } catch (DateTimeParseException e) {
+                    return null;
+                }
             }
         });
 
-        // Deshabilitar los días anteriores a hoy
-        dpFecha.setDayCellFactory(picker -> new DateCell() {
+        /** Limitar los caracteres y la estructura de la fecha escrita. */
+        dpFecha.getEditor().setTextFormatter(
+                new TextFormatter<String>(cambio -> {
 
-            @Override
-            public void updateItem(LocalDate fecha, boolean vacia) {
-                super.updateItem(fecha, vacia);
+                    String nuevoTexto = cambio.getControlNewText();
 
-                setDisable(vacia || fecha.isBefore(LocalDate.now()));
-            }
-        });
+                    if (nuevoTexto.matches(
+                            "\\d{0,2}(/\\d{0,2}(/\\d{0,4})?)?"
+                    )) {
+                        return cambio;
+                    }
+
+                    return null;
+                })
+        );
 
         cbPublico.setPromptText("Escribe el público objetivo");
         configurarAforo();
@@ -143,6 +154,28 @@ public class FormularioEventoController {
             lblTitulo.setText("Modificar evento");
             cbCategoria.setDisable(true);
             cargarEvento(evento);
+        }
+    }
+
+    private LocalDate obtenerFechaIntroducida() {
+
+        String texto = dpFecha.getEditor().getText();
+
+        if (texto == null || texto.isBlank()) {
+            return null;
+        }
+
+        try {
+
+            LocalDate fecha =
+                    LocalDate.parse(texto.trim(), FORMATO_FECHA);
+
+            dpFecha.setValue(fecha);
+
+            return fecha;
+
+        } catch (DateTimeParseException e) {
+            return null;
         }
     }
 
@@ -295,10 +328,9 @@ public class FormularioEventoController {
             return;
         }
 
-        // Si no encuentra una fecha del evento que guardar
         // Comprobar que se ha seleccionado una fecha
-        LocalDate fechaSeleccionada = dpFecha.getValue();
-
+        LocalDate fechaSeleccionada = obtenerFechaIntroducida();
+        // Si no encuentra una fecha del evento que guardar
         if (fechaSeleccionada == null) {
             mostrarError("Selecciona una fecha válida.");
             return;
