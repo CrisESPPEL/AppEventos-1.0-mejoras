@@ -75,7 +75,7 @@ public class FormularioEventoController {
                 "Adultos"
         );
 
-        // Configurar formato de fecha
+        // Configurar formato de fecha.
         DateTimeFormatter formato =
                 DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
