@@ -19,9 +19,43 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
+/**
+ * Controlador de la interfaz de creación y edición de eventos.
+ *
+ * <p>Esta clase gestiona el comportamiento del formulario de AppEventos
+ * y actúa como intermediaria entre los controles definidos en
+ * {@code formulario-evento-view.fxml}, el modelo {@link Evento} y la
+ * capa de persistencia {@link RepositorioEventosCSV}.</p>
+ *
+ * <p>El formulario adapta dinámicamente sus campos a las cuatro categorías
+ * disponibles: Música, Tecnología, Deportes y Cultura. Cada categoría
+ * dispone de controles, opciones y datos específicos, mientras que
+ * determinados campos, como el nombre, la fecha, el aforo y la descripción,
+ * forman parte de la información común.</p>
+ *
+ * <p>También centraliza las validaciones de entrada, incluyendo la
+ * obligatoriedad de los campos, el formato de la fecha, la restricción
+ * de fechas anteriores al día actual y los límites del aforo.</p>
+ *
+ * <p>El controlador permite trabajar en dos modos:
+ * creación de nuevos eventos y modificación de eventos previamente
+ * almacenados. Una vez completada correctamente la operación de
+ * persistencia, notifica el resultado mediante una función de retorno.</p>
+ *
+ * @see Evento
+ * @see RepositorioEventosCSV
+ */
 public class FormularioEventoController {
 
-    /** Declaración de todos los campos de formulario-evento-view.fxml */
+    /**
+     * Referencias a los controles gráficos definidos en
+     * formulario-evento-view.fxml.
+     *
+     * <p>Incluyen campos de texto, listas desplegables, selectores de fecha,
+     * controles numéricos, botones de opción, casillas de verificación,
+     * deslizadores y contenedores utilizados para adaptar visualmente
+     * el formulario a la categoría seleccionada.</p>
+     */
     @FXML private Label lblTitulo;
     @FXML private VBox contenedorFormulario;
     @FXML private ComboBox<String> cbCategoria;
@@ -56,14 +90,70 @@ public class FormularioEventoController {
     @FXML private Label lblOrganizacion;
     @FXML private TextArea txtDescripcion;
 
+    /**
+     * Agrupa los botones de selección de modalidad para permitir
+     * una única opción activa entre Presencial, Online e Híbrido.
+     */
     private final ToggleGroup grupoModalidad = new ToggleGroup();
+
+    /**
+     * Componente encargado de realizar las operaciones de lectura,
+     * creación y actualización de eventos en los archivos CSV.
+     */
     private final RepositorioEventosCSV repositorio = new RepositorioEventosCSV();
+
+    /**
+     * Evento que se está modificando, o {@code null} cuando el formulario
+     * se utiliza para registrar un evento nuevo.
+     *
+     * <p>Su identificador permite conservar la identidad del registro
+     * durante una operación de edición.</p>
+     */
     private Evento eventoOriginal;
+
+    /**
+     * Función de retorno ejecutada después de completar correctamente
+     * la operación de almacenamiento.
+     *
+     * <p>Recibe un valor booleano que indica el resultado de la operación.
+     * En la implementación actual, se invoca con {@code true} cuando
+     * el guardado o la actualización han finalizado correctamente.</p>
+     */
     private Consumer<Boolean> alGuardar = correcto -> { };
+
+    /**
+     * Indicador utilizado para evitar que el cambio programático de
+     * categoría durante la configuración inicial active innecesariamente
+     * el manejador de selección del ComboBox.
+     */
     private boolean actualizandoCategoria;
 
+    /**
+     * Formato de presentación y validación de fechas del formulario.
+     *
+     * <p>Utiliza el patrón día/mes/año y resolución estricta para
+     * rechazar fechas que no existan en el calendario.</p>
+     */
     private static final DateTimeFormatter FORMATO_FECHA = DateTimeFormatter.ofPattern("dd/MM/uuuu").withResolverStyle(ResolverStyle.STRICT);
 
+    /**
+     * Inicializa y configura los controles del formulario después
+     * de cargar su vista FXML.
+     *
+     * <p>Durante la inicialización se realizan las siguientes tareas:</p>
+     * <ul>
+     *   <li>Se incorporan las categorías disponibles.</li>
+     *   <li>Se configuran las opciones del público objetivo.</li>
+     *   <li>Se establece el conversor y el filtro de entrada de fechas.</li>
+     *   <li>Se configura el control de aforo con sus restricciones.</li>
+     *   <li>Se agrupan los botones correspondientes a la modalidad.</li>
+     *   <li>Se inicializan los deslizadores y sus etiquetas de valor.</li>
+     *   <li>Se registra el manejador que responde a los cambios de categoría.</li>
+     * </ul>
+     *
+     * <p>Este metodo es invocado automáticamente por JavaFX mediante
+     * {@link FXML} cuando se carga la vista asociada al controlador.</p>
+     */
     @FXML
     private void initialize() {
 
@@ -136,7 +226,25 @@ public class FormularioEventoController {
         });
     }
 
-    /** Se llama desde MainController después de cargar este FXML con FXMLLoader. */
+    /**
+     * Configura el formulario según el modo de operación solicitado.
+     *
+     * <p>Cuando no se proporciona un evento existente, el controlador
+     * prepara el formulario para crear uno nuevo. Si se recibe un evento,
+     * sus datos se cargan en los controles y se bloquea la modificación
+     * de su categoría.</p>
+     *
+     * <p>También registra la función de retorno que se ejecutará tras
+     * completar correctamente la operación de persistencia.</p>
+     *
+     * @param categoria categoría inicial del formulario; si es
+     *                  {@code null}, se establece Música
+     * @param evento evento que se desea modificar, o {@code null}
+     *               para iniciar una creación
+     * @param alGuardar función que se ejecutará cuando la operación
+     *                  de almacenamiento finalice correctamente;
+     *                  si es {@code null}, se utiliza una función vacía
+     */
     public void configurar(String categoria, Evento evento, Consumer<Boolean> alGuardar) {
         this.eventoOriginal = evento;
         this.alGuardar = alGuardar == null ? correcto -> { } : alGuardar;
@@ -157,6 +265,19 @@ public class FormularioEventoController {
         }
     }
 
+    /**
+     * Obtiene y valida la fecha escrita en el editor del DatePicker.
+     *
+     * <p>El texto introducido se analiza utilizando el formato estricto
+     * definido por {@code FORMATO_FECHA}. Cuando la fecha es válida,
+     * se actualiza también el valor interno del DatePicker.</p>
+     *
+     * <p>Los campos vacíos y las fechas que no cumplen el formato
+     * establecido se consideran entradas no válidas.</p>
+     *
+     * @return fecha convertida a {@link LocalDate}, o {@code null}
+     *         cuando el campo está vacío o contiene una fecha inválida
+     */
     private LocalDate obtenerFechaIntroducida() {
 
         String texto = dpFecha.getEditor().getText();
@@ -179,6 +300,17 @@ public class FormularioEventoController {
         }
     }
 
+    /**
+     * Configura el Spinner destinado a introducir el aforo del evento.
+     *
+     * <p>Establece un valor mínimo de 1 y un máximo de 1.000.000,
+     * con un valor inicial de 1. También incorpora un filtro de entrada
+     * para limitar el contenido del editor a caracteres numéricos
+     * y evitar entradas superiores a siete dígitos.</p>
+     *
+     * <p>La validación definitiva del valor introducido se realiza
+     * posteriormente durante el proceso de guardado.</p>
+     */
     private void configurarAforo() {
 
         SpinnerValueFactory.IntegerSpinnerValueFactory fabrica =
@@ -205,7 +337,17 @@ public class FormularioEventoController {
         spAforo.getEditor().setTextFormatter(formatter);
     }
 
-    // Constructor de los sliders
+    /**
+     * Inicializa un deslizador y sincroniza su valor con una etiqueta.
+     *
+     * <p>Configura el intervalo permitido entre 1 y 10, establece
+     * el valor inicial en 5 y activa las marcas y etiquetas de escala.
+     * Además, registra un listener para actualizar automáticamente
+     * el texto de la etiqueta cuando cambia el valor del deslizador.</p>
+     *
+     * @param slider control deslizante que se desea configurar
+     * @param etiquetaValor etiqueta que mostrará el valor seleccionado
+     */
     private void prepararSlider(Slider slider, Label etiquetaValor) {
         slider.setMin(1);
         slider.setMax(10);
@@ -221,6 +363,27 @@ public class FormularioEventoController {
         etiquetaValor.setText("5");
     }
 
+    /**
+     * Adapta el contenido del formulario a la categoría seleccionada.
+     *
+     * <p>El metodo determina qué controles deben mostrarse y qué
+     * opciones estarán disponibles en las listas desplegables.</p>
+     *
+     * <p>La configuración específica es la siguiente:</p>
+     * <ul>
+     *   <li>Música: opciones de conciertos, festivales y recitales.</li>
+     *   <li>Tecnología: temática, nivel e inscripción.</li>
+     *   <li>Deportes: disciplina y disponibilidad de material.</li>
+     *   <li>Cultura: posibilidad de indicar si el evento es gratuito.</li>
+     * </ul>
+     *
+     * <p>También actualiza la paleta visual correspondiente y reinicia
+     * las opciones de tipo y nivel para evitar conservar selecciones
+     * incompatibles con la nueva categoría.</p>
+     *
+     * @param categoria categoría cuyos controles y opciones se
+     *                   desean configurar
+     */
     private void actualizarCamposCategoria(String categoria) {
         aplicarPaletaCategoria(categoria);
 
@@ -257,8 +420,14 @@ public class FormularioEventoController {
     }
 
     /**
-     * Aplica al formulario la paleta propia de la categoría seleccionada.
-     * Los colores looked-up de JavaFX se heredan a todos los controles hijos.
+     * Aplica al contenedor principal la clase CSS asociada a una categoría.
+     *
+     * <p>Primero elimina las clases visuales de las categorías anteriores
+     * y después incorpora la correspondiente a la selección actual.
+     * De esta forma, los estilos definidos en la hoja CSS pueden adaptar
+     * los colores del formulario sin acumular clases incompatibles.</p>
+     *
+     * @param categoria categoría cuya paleta visual se desea aplicar
      */
     private void aplicarPaletaCategoria(String categoria) {
         contenedorFormulario.getStyleClass().removeAll(
@@ -277,12 +446,52 @@ public class FormularioEventoController {
         }
     }
 
+    /**
+     * Controla la visibilidad y la participación de una fila en el diseño.
+     *
+     * <p>Además de modificar la propiedad de visibilidad, actualiza
+     * la propiedad {@code managed}. Esto permite que JavaFX reserve
+     * espacio para la fila únicamente cuando está visible, evitando
+     * huecos en el formulario.</p>
+     *
+     * @param fila contenedor horizontal que se desea controlar
+     * @param mostrar {@code true} para mostrar y gestionar la fila;
+     *                {@code false} para ocultarla y retirarla del diseño
+     */
     private void mostrarFila(HBox fila, boolean mostrar) {
         fila.setVisible(mostrar);
         fila.setManaged(mostrar);
     }
 
-    // Metodo para guardar un evento en un .csv
+    /**
+     * Valida y almacena los datos introducidos en el formulario.
+     *
+     * <p>Antes de realizar cualquier operación de persistencia,
+     * comprueba que se hayan seleccionado los campos obligatorios
+     * y que sus valores cumplan las restricciones establecidas.</p>
+     *
+     * <p>Entre las comprobaciones realizadas se encuentran:</p>
+     * <ul>
+     *   <li>Existencia de una categoría y un nombre de evento.</li>
+     *   <li>Selección del tipo de actividad.</li>
+     *   <li>Validación de los campos específicos de cada categoría.</li>
+     *   <li>Existencia y validez de la fecha introducida.</li>
+     *   <li>Rechazo de fechas anteriores al día actual.</li>
+     *   <li>Validación numérica del aforo y de sus límites.</li>
+     *   <li>Existencia del público objetivo y de una modalidad válida.</li>
+     * </ul>
+     *
+     * <p>Una vez superadas las validaciones, recopila los valores
+     * del formulario y delega la operación en {@link RepositorioEventosCSV}.</p>
+     *
+     * <p>Si se trata de una creación, genera un nuevo objeto {@link Evento}.
+     * Si se trata de una edición, conserva el identificador original y
+     * sustituye los datos del registro existente.</p>
+     *
+     * <p>Cuando la operación termina correctamente, muestra una notificación
+     * y ejecuta la función de retorno configurada. Los errores de
+     * persistencia se comunican mediante una alerta.</p>
+     */
     @FXML
     private void guardarEvento() {
 
@@ -389,6 +598,28 @@ public class FormularioEventoController {
         }
     }
 
+    /**
+     * Construye el array de datos que representa la información del evento.
+     *
+     * <p>La estructura del array depende de la categoría seleccionada
+     * y debe mantener exactamente el orden utilizado por el modelo
+     * {@link Evento} y por el repositorio CSV.</p>
+     *
+     * <p>Los datos comunes, como las valoraciones de interés, difusión
+     * y organización, así como la descripción, se incorporan al final
+     * de todas las estructuras.</p>
+     *
+     * <p>La fecha se almacena en formato ISO mediante
+     * {@link LocalDate#toString()}, independientemente de su formato
+     * de presentación en el formulario.</p>
+     *
+     * @param categoria categoría que determina la estructura del array
+     * @param publico texto correspondiente al público objetivo
+     * @param modalidad modalidad seleccionada para el evento
+     * @return array de cadenas con los datos organizados en el orden
+     *         requerido por el modelo y el almacenamiento CSV
+     * @throws IllegalArgumentException si se recibe una categoría desconocida
+     */
     private String[] crearDatos(String categoria, String publico, String modalidad) {
         List<String> datos = new ArrayList<>();
         datos.add(txtNombre.getText().trim());
@@ -448,7 +679,15 @@ public class FormularioEventoController {
         return datos.toArray(new String[0]);
     }
 
-    // Metodo para obtener la modalidad escogida por el usuario
+    /**
+     * Obtiene la modalidad seleccionada mediante los botones de opción.
+     *
+     * <p>Reconoce las modalidades Presencial, Online e Híbrido,
+     * devolviendo el valor textual correspondiente a la selección activa.</p>
+     *
+     * @return modalidad seleccionada o una cadena vacía si no hay
+     *         ningún botón activo
+     */
     private String obtenerModalidad() {
         if (rbPresencial.isSelected()) return "Presencial";
         if (rbOnline.isSelected()) return "Online";
@@ -456,6 +695,19 @@ public class FormularioEventoController {
         return "";
     }
 
+    /**
+     * Restaura en los controles del formulario la información de un evento.
+     *
+     * <p>El metodo consulta la categoría del evento y asigna cada valor
+     * a su control correspondiente. Como la estructura de datos varía
+     * entre categorías, cada caso utiliza las posiciones específicas
+     * definidas al construir el array mediante {@code crearDatos()}.</p>
+     *
+     * <p>También restaura las opciones booleanas, la modalidad, los
+     * valores de los deslizadores y la descripción.</p>
+     *
+     * @param evento evento cuyos datos se desean cargar en el formulario
+     */
     private void cargarEvento(Evento evento) {
         String[] datos = evento.getDatos();
         String categoria = evento.getCategoria();
@@ -516,12 +768,35 @@ public class FormularioEventoController {
         }
     }
 
-    // Metodo para obtener datos del array de datos evitando errores, como coger valores nulos
+    /**
+     * Recupera un elemento de un array de datos con comprobación de límites.
+     *
+     * <p>Comprueba que el índice se encuentre dentro del rango disponible
+     * y que el valor almacenado no sea {@code null}. Esta protección
+     * permite manejar estructuras incompletas sin provocar errores
+     * de acceso a posiciones inexistentes.</p>
+     *
+     * @param datos array que contiene la información del evento
+     * @param indice posición del elemento que se desea recuperar
+     * @return valor correspondiente al índice indicado o una cadena vacía
+     *         cuando el índice no es válido o el contenido es nulo
+     */
     private String dato(String[] datos, int indice) {
         return indice >= 0 && indice < datos.length && datos[indice] != null ? datos[indice] : "";
     }
 
-    // Metodo para obtener la fecha de un evento
+    /**
+     * Convierte una representación textual ISO de fecha a LocalDate.
+     *
+     * <p>Este metodo se utiliza al recuperar fechas almacenadas
+     * en los registros CSV. Los valores vacíos o que no puedan
+     * interpretarse como fechas válidas producen un resultado nulo.</p>
+     *
+     * @param texto representación textual de la fecha, normalmente
+     *              en formato ISO {@code yyyy-MM-dd}
+     * @return objeto {@link LocalDate} cuando la conversión es válida;
+     *         {@code null} en caso de texto vacío o inválido
+     */
     private LocalDate fecha(String texto) {
         if (texto == null || texto.isBlank()) return null;
         try {
@@ -531,7 +806,17 @@ public class FormularioEventoController {
         }
     }
 
-    // Metodo para establecer el aforo de un evento, con un mínimo de 1 y un máximo de 1_000_000
+    /**
+     * Establece en el Spinner el aforo recuperado de un evento.
+     *
+     * <p>Convierte el texto recibido a un número entero y limita
+     * su valor al intervalo comprendido entre 1 y 1.000.000.</p>
+     *
+     * <p>Cuando el contenido no es numérico, se establece el valor
+     * predeterminado de 1.</p>
+     *
+     * @param texto valor textual del aforo almacenado en el evento
+     */
     private void establecerAforo(String texto) {
         try {
             int valor = Integer.parseInt(texto);
@@ -541,7 +826,14 @@ public class FormularioEventoController {
         }
     }
 
-    // Metodo para seleccionar la modalidad del evento, puede ser Online, Híbrido o Presencial
+    /**
+     * Activa el botón de opción correspondiente a una modalidad.
+     *
+     * <p>Identifica las opciones Online e Híbrido. Para cualquier
+     * otro valor, selecciona Presencial como modalidad predeterminada.</p>
+     *
+     * @param modalidad modalidad que se desea restaurar en el formulario
+     */
     private void seleccionarModalidad(String modalidad) {
         switch (modalidad) {
             case "Online" -> rbOnline.setSelected(true);
@@ -550,14 +842,35 @@ public class FormularioEventoController {
         }
     }
 
-    // Metodo que recoge los valores de los 3 sliders
+    /**
+     * Restaura los valores de los tres deslizadores a partir del array.
+     *
+     * <p>Cada deslizador utiliza el índice indicado para localizar
+     * su valor en la estructura de datos. La conversión y el control
+     * de los límites se delegan en {@code enteroEntre()}.</p>
+     *
+     * @param datos array que contiene los datos del evento
+     * @param interes posición correspondiente a la valoración de interés
+     * @param difusion posición correspondiente a la valoración de difusión
+     * @param organizacion posición correspondiente a la valoración de organización
+     */
     private void establecerSliders(String[] datos, int interes, int difusion, int organizacion) {
         slInteres.setValue(enteroEntre(dato(datos, interes)));
         slDifusion.setValue(enteroEntre(dato(datos, difusion)));
         slOrganizacion.setValue(enteroEntre(dato(datos, organizacion)));
     }
 
-    // Metodo que convierte el valor del slider en entero, si falla devuelve el valor predeterminado
+    /**
+     * Convierte un texto a un entero válido para los deslizadores.
+     *
+     * <p>El resultado se limita al intervalo comprendido entre 1 y 10.
+     * Si el texto no representa un número entero válido, se devuelve
+     * el valor predeterminado de 5.</p>
+     *
+     * @param texto valor textual que se desea convertir
+     * @return número entero comprendido entre 1 y 10, o 5 si la
+     *         conversión no es posible
+     */
     private int enteroEntre(String texto) {
         try {
             return Math.max(1, Math.min(10, Integer.parseInt(texto)));
@@ -566,7 +879,18 @@ public class FormularioEventoController {
         }
     }
 
-    // Metodo para limpiar los datos escritos en el formulario, asignando sus valores predeterminados
+    /**
+     * Restablece los controles del formulario a sus valores iniciales.
+     *
+     * <p>Elimina los textos introducidos, reinicia las selecciones,
+     * desactiva las casillas de verificación y restablece los valores
+     * predeterminados de los controles numéricos.</p>
+     *
+     * <p>El aforo vuelve a 1, la modalidad a Presencial y los tres
+     * deslizadores a 5. También se elimina la descripción introducida.</p>
+     *
+     * <p>Este metodo está asociado a la interfaz mediante FXML.</p>
+     */
     @FXML
     private void limpiarFormulario() {
         txtNombre.clear();
@@ -590,7 +914,15 @@ public class FormularioEventoController {
         txtDescripcion.clear();
     }
 
-    // Metodo que sirve como constructor para poder mostrar un mensaje de error
+    /**
+     * Presenta al usuario una ventana de alerta de tipo error.
+     *
+     * <p>La alerta utiliza el título general de la aplicación, no
+     * incorpora un encabezado adicional y muestra el mensaje recibido.
+     * La ventana permanece activa hasta que el usuario la cierra.</p>
+     *
+     * @param mensaje explicación del error que se desea comunicar
+     */
     private void mostrarError(String mensaje) {
         Alert alerta = new Alert(Alert.AlertType.ERROR);
         alerta.setTitle("AppEventos");
@@ -599,7 +931,14 @@ public class FormularioEventoController {
         alerta.showAndWait();
     }
 
-    // Metodo que sirve como constructor para poder mostrar un mensaje de confirmación en caso de éxito
+    /**
+     * Presenta una notificación informativa al finalizar una operación.
+     *
+     * <p>Se utiliza para comunicar al usuario que una acción,
+     * como guardar o modificar un evento, se ha completado correctamente.</p>
+     *
+     * @param mensaje texto de confirmación que se mostrará
+     */
     private void mostrarConfirmacion(String mensaje) {
         Alert alerta = new Alert(Alert.AlertType.INFORMATION);
         alerta.setTitle("AppEventos");

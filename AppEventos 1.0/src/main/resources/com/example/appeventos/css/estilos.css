@@ -1,11 +1,4 @@
 /*
-   IDEA CLAVE (para explicarla en la defensa):
-   Cada tipo de evento define unas "variables de color" de CSS
-   (tipo-a, tipo-b, ...). Despues, las reglas de tarjetas,
-   badges, filas, cabecera y botones usan esas variables.
-   Asi escribimos cada regla UNA sola vez y cambia de color
-   segun la clase del tipo (evento-musica, evento-tecnologia...).
-
    Indice:
      1. Colores por tipo de evento
      2. Base de la aplicacion
